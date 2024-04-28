@@ -1,5 +1,5 @@
-import React, {useState,useEffect} from 'react';
-import {Button, Card, Col, Container, Row} from 'react-bootstrap';
+import React, {useEffect, useState} from 'react';
+import {Button, Card, Col, Container, Modal, Row} from 'react-bootstrap';
 import {FaChair, FaMapMarkerAlt, FaRegCalendarAlt, FaRegClock, FaWheelchair} from 'react-icons/fa';
 import {MdChair} from "react-icons/md";
 import '../styles/eventseatmap.css'
@@ -9,51 +9,50 @@ import axios from "axios";
 import {toast, ToastContainer} from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import MapContainer from "./MapContainer";
-import WeatherApplicationCard from "./WeatherApplicationCard";
-import {Modal} from "react-bootstrap";
+import WeatherApplicationCardExplorer from "./WeatherApplicationCardExplorerPicks";
 
-const EventSeatMap = () => {
+const ExplorerSeatMap = () => {
 
 
     const[confirmationCode, setConfirmationCode] = useState('');
-
     const location = useLocation();
-    const { event } = location.state || {};
-    console.log("this is from event details from search ",event)
-    const seatsPerRow = 6;
+    const { event, eventImage } = location.state || {};
+    const seatsPerRow = Math.ceil(event.capacity / 12); // Assuming 12 seats per row
+
+    //const seatsPerRow = 6;
     const [selectedSeats, setSelectedSeats] = useState([]);
-    const [showWeatherPopup, setShowWeatherPopup] = useState(false);
+    const [venueType, setVenueType] = useState([false]);
+    const eventLocation = `${event.city}`;
+    const eventDay = `${event.eventDate}`;
 
-    const latitude = `${event._embedded.venues[0].location.latitude}`;
-    const longitude = `${event._embedded.venues[0].location.longitude}`;
-    const Dates =  `${event.dates.start.localDate}`;
 
+    const seatPrices = {
+        normal:  event.regularPrice,
+        handicapped:  event.disabledPrice ,
+        vip:  event.vipPrice
+    };
+
+
+    useEffect(() => {
+        if(event.venueType.toLowerCase() === 'outdoor'){
+
+            setVenueType('true');
+        }
+    }, []);
+
+    
+
+
+    sessionStorage.setItem("credit-card-actions", "true");
+    const bankNameSession = sessionStorage.getItem("banKNameSession");
+    const sessionEmail = sessionStorage.getItem("email");
+    const [showWeatherPopup, setShowWeatherPopup] = useState('');
 
     useEffect(() => {
         // Show the WeatherApplicationCard pop-up when the component mounts
         setShowWeatherPopup(true);
     }, []); // Empty dependency array ensures this effect runs only once on mount
 
-    const seatPrices = {
-        normal: event.priceRanges && event.priceRanges[0] && event.priceRanges[0].min ? event.priceRanges[0].min : '60',
-        handicapped: event.priceRanges && event.priceRanges[0] && event.priceRanges[0].max ? event.priceRanges[0].max - 10 : '50',
-        vip: event.priceRanges && event.priceRanges[0] && event.priceRanges[0].max ? event.priceRanges[0].max : '100'
-    };
-
-
-    const eventDate = new Date(event.dates.start.localDate);
-    const formattedDate = eventDate.toLocaleDateString('en-US', {
-        timeZone: 'UTC',
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-
-
-    sessionStorage.setItem("credit-card-actions", "true");
-    const bankNameSession = sessionStorage.getItem("banKNameSession");
-    const sessionEmail = sessionStorage.getItem("email");
 
     const handleSeatClick = (row, seatNum) => {
         const seatId = `${row}${seatNum}`;
@@ -64,20 +63,18 @@ const EventSeatMap = () => {
         );
     };
 
-
     const calculateTotalPrice = () => {
         return selectedSeats.reduce((total, seatId) => {
             const row = seatId.charAt(0);
             if (['F', 'G'].includes(row)) {
-                return total + +seatPrices.handicapped; // convert to number
+                return total + seatPrices.handicapped;
             } else if (['H', 'I', 'J', 'K', 'L', 'M'].includes(row)) {
-                return total + +seatPrices.normal; // convert to number
+                return total + seatPrices.normal;
             } else {
-                return total + +seatPrices.vip; // convert to number
+                return total + seatPrices.vip;
             }
         }, 0);
     };
-
 
     const totalPrice = calculateTotalPrice();
 
@@ -108,32 +105,10 @@ const EventSeatMap = () => {
         );
     };
 
-    const phoneNumber = event._embedded?.venues[0]?.boxOfficeInfo?.phoneNumberDetail;
-    const cleanPhoneNumber = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
 
 
 
-    const eventRequest = {
 
-        eventId: event.id,
-        userEmail: "mticket320@gmail.com",
-        eventName: event.name,
-        eventType: event.type || 'Music',
-        eventDate: event.dates.start.localDate || '',
-        eventTime: event.dates.start.localTime || '',
-        venueName: event._embedded?.venues[0]?.name || '',
-        capacity: 100 ,
-        // price: event.priceRanges && event.priceRanges[0] && event.priceRanges[0].max ? event.priceRanges[0].max : '50',
-        regularPrice: seatPrices.normal,
-        vipPrice : seatPrices.vip,
-        disabledPrice: seatPrices.normal,
-        city: event._embedded?.venues[0]?.city?.name || '',
-        state: event._embedded?.venues[0]?.state?.name || 'NY',
-        contactNumber: 9876140152 || '',
-        venueType: event?.classifications?.[0]?.segment?.name || '',
-        description: event?.info || 'this is the ticket master event ',
-        eventEmailAddress: 'eventexplorer099@gmail.com'
-    }
 
 
 
@@ -151,25 +126,13 @@ const EventSeatMap = () => {
     const handlePlaceOrder = async () => {
         // Handle placing the order
 
-        formData.eventId = event.id;
+        console.log(event);
+        formData.eventId = event.eventId;
         formData.emailId = sessionEmail;
         formData.seatNumber = selectedSeats;
         formData.attendees = selectedSeats.length;
         formData.totalPrice = totalPrice;
         formData.bankName = bankNameSession && bankNameSession.replace(/"/g, '') ? bankNameSession.replace(/"/g, '') : '';
-
-
-        console.log(eventRequest)
-        try {
-            const response = await axios.post("/v1/organiser/events/create", eventRequest, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            console.log('event created successfully:', response.data);
-        } catch (error) {
-            console.error('Error submitting form:', error);
-        }
 
 
         try {
@@ -191,13 +154,17 @@ const EventSeatMap = () => {
 
     return (
         <Container>
+
+
             {/* WeatherApplicationCard pop-up */}
             <Modal show={showWeatherPopup} onHide={() => setShowWeatherPopup(false)}>
                 <Modal.Header closeButton>
                     <Modal.Title>Weather Forecast</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <WeatherApplicationCard latitude={latitude} longitude={longitude} dates={Dates}/>
+
+                    <WeatherApplicationCardExplorer date={eventDay} city={eventLocation}  />
+
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowWeatherPopup(false)}>
@@ -267,23 +234,30 @@ const EventSeatMap = () => {
                 <Row>
                     <Col>
                         <Card className="custom-card" style={{ width: '18rem' }}>
-                            <Card.Img variant="top" src={event.images[0].url} alt="Card image cap" />
+                            <Card.Img variant="top" src={eventImage} alt="Card image cap" />
                             <Card.Body>
-                                <h5 className="card-title">{event.name}</h5>
+                                <h5 className="card-title">{event.eventName}</h5>
                                 <Card.Text>
-                                    <p><FaRegCalendarAlt/>{formattedDate}</p>
-                                    <p><FaRegClock/> {event.dates.start.localTime}</p>
-                                    <p><FaMapMarkerAlt/> {event._embedded.venues[0].city.name}, {event._embedded.venues[0].name}</p>
-
-                                    <p><MapContainer location={`${event._embedded.venues[0].city.name}, ${event._embedded.venues[0].name}`} /></p>
-
+                                    <p><FaRegCalendarAlt/>{`${new Date(event.eventDate).toLocaleDateString('en-US', {
+                                        timeZone: 'UTC',
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                    })} `}</p>
+                                    <p><FaRegClock/> {event.eventTime} </p>
+                                    <p><FaMapMarkerAlt/> {event.city}, {event.venueName}</p>
+                                    <p><MapContainer
+                                        location={`${event.city}, ${event.venueName}`}/>
+                                    </p>
                                 </Card.Text>
+
                             </Card.Body>
                         </Card>
 
                     </Col>
                     <Col>
-                        <div className="text-right">
+                    <div className="text-right">
                             <br/>
                             <br/>
                             {confirmationCode && <div className="alert alert-success">Booking confirmed! Your event awaits. Your confirmation code: {confirmationCode}. Enjoy every moment!</div>}
@@ -297,10 +271,8 @@ const EventSeatMap = () => {
                 </Row>
             </div>
             <ToastContainer />
-
         </Container>
     );
 };
 
-export default EventSeatMap;
-
+export default ExplorerSeatMap;

@@ -43,7 +43,7 @@ const PaymentMethodForm = () => {
 
 
         try {
-            const response = await axios.get(`http://localhost:8082/ee/v1/customers/${sessionEmail}/billing-info/has-credit-card`);
+            const response = await axios.get(`/v1/customers/${sessionEmail}/billing-info/has-credit-card`);
 
             // console.log("has a card?"+ JSON.stringify(response.data.bankName));
             setCreditCardInfo(response.data);
@@ -95,18 +95,52 @@ const PaymentMethodForm = () => {
     }
 
 
-
-
-
     const handleUpdateChange = (e) => {
 
         setSuccessMessage('');
         setErrorMessage('');
         const { name, value } = e.target;
 
+        // Validation regex patterns
+        const namePattern = /^[a-zA-Z.\s-]*$/;
+        const cardNumberPattern = /^\d{0,12}$/;
+        const cvvPattern = /^\d{0,4}$/;
+        const addressPattern = /^[a-zA-Z0-9\s,.'-]*$/;
+        const cityStatePattern = /^[a-zA-Z\s-]*$/;
+        const phoneNumberPattern = /^\d{0,10}$/;
+        const zipCodePattern = /^\d{0,5}$/;
         if (name === 'expiration' && /^\d{0,2}\/\d{0,2}$/.test(value)) {
             setUpdateData({ ...updateData, [name]: value });
         }
+
+        // Validate input based on name
+        switch (name) {
+            case 'cardHolderName':
+                if (!namePattern.test(value)) return; // Only allow letters, dots, spaces, and hyphens
+                break;
+            case 'cardNumber':
+                if (!cardNumberPattern.test(value)) return; // Only allow up to 12 digits
+                break;
+            case 'cvv':
+                if (!cvvPattern.test(value)) return; // Only allow up to 4 digits
+                break;
+            case 'address':
+                if (!addressPattern.test(value)) return; // Address validation
+                break;
+            case 'city':
+            case 'state':
+                if (!cityStatePattern.test(value)) return; // City and state validation
+                break;
+            case 'phoneNumber':
+                if (!phoneNumberPattern.test(value)) return; // Only allow up to 10 digits
+                break;
+            case 'zipcode':
+                if (!zipCodePattern.test(value)) return; // Only allow up to 5 digits
+                break;
+            default:
+                break;
+        }
+
         setUpdateData((prevData) => ({
             ...prevData,
             [name]: value,
@@ -117,21 +151,39 @@ const PaymentMethodForm = () => {
         e.preventDefault();
 
 
+        console.log(updateData);
 
-        try {
-            const response = await axios.post("http://localhost:8082/ee/v1/customer/billing-info", updateData);
-            setSuccessMessage('Form submitted successfully');
-            console.log('Credit Card Form submitted successfully:', response.data);
+        var expireDate = updateData.expiryDate;
+        var month = expireDate.slice(0,2)
+        console.log(month)
+        var year = expireDate.slice(3,5)
 
-            setCreditCardInfo(response.data);
-            setBankNameSession(response.data.bankName)
-            setHasCard(true);
-            setShowForm(false);
+        if(month >4 && year > 23)
+        {
+            try {
+                const response = await axios.post("/v1/customer/billing-info", updateData);
+                setSuccessMessage('Form submitted successfully');
+                console.log('Credit Card Form submitted successfully:', response.data);
+                setErrorMessage('');
 
-        } catch (error) {
-            setErrorMessage(error.response.data);
-            console.error('Error submitting form:', error);
+                setCreditCardInfo(response.data);
+                setBankNameSession(response.data.bankName)
+                setHasCard(true);
+                setShowForm(false);
+                setTimeout(() => {
+                    window.location.reload(); // Refresh the page after 15 seconds
+                }, 5000);
+
+            } catch (error) {
+                setErrorMessage(error.response.data);
+                console.error('Error submitting form:', error);
+            }
+        }else{
+            setErrorMessage("Please check the expiry date")
+            console.log("not allow the year")
         }
+
+
     };
     const handlePayPalButtonClick = () => {
         window.open('https://www.paypal.com/signin', '_blank');
@@ -204,10 +256,11 @@ const PaymentMethodForm = () => {
                                 type="text"
                                 className="form-control"
                                 id="floatingHolderName"
-                                placeholder="Address"
+                                placeholder="Name"
                                 value={updateData.cardHolderName}
                                 name="cardHolderName"
                                 onChange={handleUpdateChange}
+                                required
                             />
                             <label htmlFor="floatingAddress">Card Holder Name</label>
                         </div>
@@ -220,6 +273,7 @@ const PaymentMethodForm = () => {
                                 value={updateData.cardNumber}
                                 name="cardNumber"
                                 onChange={handleUpdateChange}
+                                required
                             />
                             <label htmlFor="floatingAddress">Card Number</label>
                         </div>
@@ -233,6 +287,7 @@ const PaymentMethodForm = () => {
                                 name="cvv"
                                 onChange={handleUpdateChange}
                                 maxLength="4"
+                                required
                             />
                             <label htmlFor="floatingAddress">CVV</label>
                         </div>
@@ -246,6 +301,7 @@ const PaymentMethodForm = () => {
                                 name="expiryDate"
                                 onChange={handleUpdateChange}
                                 maxLength="5"
+                                required
                             />
                             <label htmlFor="floatingAddress">MM/YY</label>
                         </div>
@@ -259,6 +315,7 @@ const PaymentMethodForm = () => {
                                 value={updateData.address}
                                 name="address"
                                 onChange={handleUpdateChange}
+                                required
                             />
                             <label htmlFor="floatingAddress">Address</label>
                         </div>
@@ -271,6 +328,7 @@ const PaymentMethodForm = () => {
                                 value={updateData.city}
                                 name="city"
                                 onChange={handleUpdateChange}
+                                required
                             />
                             <label htmlFor="floatingCity">City</label>
                         </div>
@@ -283,6 +341,7 @@ const PaymentMethodForm = () => {
                                 value={updateData.state}
                                 name="state"
                                 onChange={handleUpdateChange}
+                                required
                             />
                             <label htmlFor="floatingState">State</label>
                         </div>
@@ -308,6 +367,7 @@ const PaymentMethodForm = () => {
                                 placeholder="Zip Code"
                                 value={updateData.zipcode}
                                 name="zipcode"
+                                required
                                 onChange={handleUpdateChange}
                             />
                             <label htmlFor="floatingZip">Zip Code</label>
