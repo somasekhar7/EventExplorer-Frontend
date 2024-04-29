@@ -292,7 +292,7 @@ function OrganizerEventCreation() {
                                 <label htmlFor="floatingCapacity">Capacity</label>
                             </div>
 
-                            {/* Price */}
+                            {/* Updated the Prices for regular, handicapped and VIP */}
                             <div className="form-floating mb-3">
                                 <input
                                     type="text"
